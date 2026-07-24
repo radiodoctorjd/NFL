@@ -662,7 +662,9 @@ function renderWeek() {
     const confClass = conf.includes('strong') ? 'strong' : conf.includes('moderate') ? 'moderate' : 'tossup';
     const confLabel = conf.includes('strong') ? 'Strong' : conf.includes('moderate') ? 'Moderate' : 'Toss-up';
 
-    const hasInjury = DATA.injuries.some(inj => inj['Team'] === g['Away'] || inj['Team'] === g['Home']);
+    const hasInjury = DATA.injuries.some(inj =>
+      (inj['Team'] === g['Away'] || inj['Team'] === g['Home']) && isActiveInjury(inj['Status'])
+    );
 
     html += `
       <div class="card" tabindex="0" role="button" onclick="openGameModal(${idx})" onkeydown="if(event.key==='Enter')openGameModal(${idx})">
@@ -867,8 +869,17 @@ function openGameModal(idx) {
   document.getElementById('overlay').classList.add('open');
 }
 
+// Statuses that represent an actual current injury concern. ESPN's feed also
+// includes "Active" for players who were hurt but are now cleared to play —
+// that's not an injury anymore, so it's excluded here.
+const ACTIVE_INJURY_STATUSES = ['OUT', 'DOUBTFUL', 'QUESTIONABLE', 'IR', 'PUP', 'SUSPENDED'];
+function isActiveInjury(status) {
+  return ACTIVE_INJURY_STATUSES.includes(String(status || '').toUpperCase().trim());
+}
+
 function renderInjuryList(awayInj, homeInj, g) {
-  const all = [...awayInj.map(i => ({...i, side: g['Away']})), ...homeInj.map(i => ({...i, side: g['Home']}))];
+  const all = [...awayInj.map(i => ({...i, side: g['Away']})), ...homeInj.map(i => ({...i, side: g['Home']}))]
+    .filter(i => isActiveInjury(i['Status']));
   if (!all.length) return `<div class="injury-line" style="color:var(--yard-gray)">None reported.</div>`;
   return all.map(i => `
     <div class="injury-line">
