@@ -27,7 +27,15 @@
 
   body {
     margin: 0;
-    background: var(--field);
+    background:
+      repeating-linear-gradient(
+        90deg,
+        rgba(61,139,95,0.05) 0px,
+        rgba(61,139,95,0.05) 60px,
+        rgba(40,92,62,0.05) 60px,
+        rgba(40,92,62,0.05) 120px
+      ),
+      var(--field);
     color: var(--chalk);
     font-family: 'Inter', sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -331,6 +339,33 @@
   }
 
   /* ── STANDINGS TABLE ────────────────────────────────── */
+  .division-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+  }
+  .division-block {
+    background: var(--card-bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .division-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--turf);
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(61,139,95,0.06);
+  }
+  .division-block .standings-table th,
+  .division-block .standings-table td {
+    padding: 8px 10px;
+  }
+
   .standings-table {
     width: 100%;
     border-collapse: collapse;
@@ -496,6 +531,7 @@
 
 <div class="tab-bar">
   <button class="tab active" id="tab-week" onclick="switchTab('week')">This Week</button>
+  <button class="tab" id="tab-division" onclick="switchTab('division')">Standings</button>
   <button class="tab" id="tab-standings" onclick="switchTab('standings')">Elo Ratings</button>
 </div>
 
@@ -634,12 +670,14 @@ async function loadAll() {
 function switchTab(tab) {
   currentTab = tab;
   document.getElementById('tab-week').classList.toggle('active', tab === 'week');
+  document.getElementById('tab-division').classList.toggle('active', tab === 'division');
   document.getElementById('tab-standings').classList.toggle('active', tab === 'standings');
   render();
 }
 
 function render() {
   if (currentTab === 'week') renderWeek();
+  else if (currentTab === 'division') renderDivisionStandings();
   else renderStandings();
 }
 
@@ -839,6 +877,81 @@ function renderStandings() {
 
   html += `</tbody></table>`;
   main.innerHTML = html;
+}
+
+/* ============================================================
+   DIVISION STANDINGS
+   ============================================================ */
+function renderDivisionStandings() {
+  const main = document.getElementById('main');
+  const teams = DATA.teamStats;
+
+  if (!teams.length) {
+    main.innerHTML = `<div class="state-msg">No team records found.<br><strong>Run the prediction model in your Sheet, then refresh.</strong></div>`;
+    return;
+  }
+
+  // Group by "CONF DIV", e.g. "AFC East"
+  const groups = {};
+  teams.forEach(t => {
+    const key = `${t['Conf']} ${t['Div']}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(t);
+  });
+
+  // Standard division display order
+  const order = ['AFC East','AFC North','AFC South','AFC West','NFC East','NFC North','NFC South','NFC West'];
+  const keys = Object.keys(groups).sort((a, b) => {
+    const ia = order.indexOf(a), ib = order.indexOf(b);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+
+  let html = `<div class="week-label">Division Standings</div><div class="division-grid">`;
+
+  keys.forEach(key => {
+    const rows = groups[key].slice().sort((a, b) => winPct(b) - winPct(a));
+    html += `
+      <div class="division-block">
+        <div class="division-title">${escapeHtml(key)}</div>
+        <table class="standings-table">
+          <thead>
+            <tr>
+              <th>Team</th>
+              <th>W</th>
+              <th>L</th>
+              <th>T</th>
+              <th>PCT</th>
+              <th>PF</th>
+              <th>PA</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+    rows.forEach(t => {
+      html += `
+        <tr>
+          <td class="team-cell">${escapeHtml(teamName(t['Abbr']) || t['Team'])}</td>
+          <td>${escapeHtml(t['W'] || '0')}</td>
+          <td>${escapeHtml(t['L'] || '0')}</td>
+          <td>${escapeHtml(t['T'] || '0')}</td>
+          <td>${winPct(t).toFixed(3).replace(/^0/, '')}</td>
+          <td>${escapeHtml(t['PF'] || '—')}</td>
+          <td>${escapeHtml(t['PA'] || '—')}</td>
+        </tr>
+      `;
+    });
+    html += `</tbody></table></div>`;
+  });
+
+  html += `</div>`;
+  main.innerHTML = html;
+}
+
+function winPct(t) {
+  const w = parseFloat(t['W']) || 0, l = parseFloat(t['L']) || 0, ti = parseFloat(t['T']) || 0;
+  const total = w + l + ti;
+  if (total === 0) return 0;
+  return (w + ti * 0.5) / total;
 }
 
 /* ============================================================
