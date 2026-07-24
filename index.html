@@ -451,7 +451,7 @@
 
 <header>
   <div class="brand">
-    <span class="brand-mark">GRIDIRON<span>ELO</span></span>
+    <span class="brand-mark">NFL</span>
     <span class="brand-sub">Prediction Model</span>
   </div>
   <div class="header-right">
@@ -597,8 +597,8 @@ function renderWeek() {
   let html = `<div class="week-label">Week ${escapeHtml(weekNum)}</div><div class="grid">`;
 
   games.forEach((g, idx) => {
-    const awayPct = Math.round(parseFloat(g['Away Win%'] || 0) * 100);
-    const homePct = Math.round(parseFloat(g['Home Win%'] || 0) * 100);
+    const awayPct = parsePercent(g['Away Win%']);
+    const homePct = parsePercent(g['Home Win%']);
     const homeFavored = homePct >= awayPct;
     const spread = parseFloat(g['Spread (Home)'] || 0);
     const spreadText = spread === 0 ? 'PICK' :
@@ -613,7 +613,7 @@ function renderWeek() {
     html += `
       <div class="card" tabindex="0" role="button" onclick="openGameModal(${idx})" onkeydown="if(event.key==='Enter')openGameModal(${idx})">
         <div class="card-top">
-          <span>${escapeHtml(formatDate(g['Game Date']))}</span>
+          <span>${escapeHtml(formatDate(g['Kickoff'] || g['Game Date']))}</span>
           <span class="conf-dot ${confClass}">${confLabel}</span>
         </div>
         <div class="matchup">
@@ -664,11 +664,27 @@ function weatherIcon(desc) {
   return '🌡️';
 }
 
+function parsePercent(raw) {
+  if (raw === undefined || raw === null || raw === '') return 0;
+  const str = String(raw).trim();
+  const hasPercentSign = str.includes('%');
+  const num = parseFloat(str.replace('%', ''));
+  if (isNaN(num)) return 0;
+  // "27.3%" or "27.3" (already scaled) -> use as-is.
+  // A bare decimal like "0.273" (no % sign, value <= 1) -> scale up.
+  if (!hasPercentSign && num <= 1) return Math.round(num * 100);
+  return Math.round(num);
+}
+
 function formatDate(raw) {
   if (!raw) return 'TBD';
   const d = new Date(raw);
   if (isNaN(d.getTime())) return raw;
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const hasRealTime = !(d.getHours() === 0 && d.getMinutes() === 0);
+  const opts = hasRealTime
+    ? { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }
+    : { weekday: 'short', month: 'short', day: 'numeric' };
+  return d.toLocaleDateString('en-US', opts);
 }
 
 /* ============================================================
@@ -740,7 +756,7 @@ function openGameModal(idx) {
   const body = document.getElementById('modal-body');
   body.innerHTML = `
     <div class="modal-header">${escapeHtml(g['Away'])} @ ${escapeHtml(g['Home'])}</div>
-    <div class="modal-sub">Week ${escapeHtml(g['Week'])} · ${escapeHtml(formatDate(g['Game Date']))}</div>
+    <div class="modal-sub">Week ${escapeHtml(g['Week'])} · ${escapeHtml(formatDate(g['Kickoff'] || g['Game Date']))}</div>
 
     <div class="modal-cols">
       <div class="modal-team-block">
