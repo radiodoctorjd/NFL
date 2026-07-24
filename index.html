@@ -247,6 +247,11 @@
   }
   .team-row.pick .team-win-pct { color: var(--turf); font-weight: 700; }
 
+  .team-divider {
+    height: 1px;
+    background: var(--line);
+    margin: 6px 0;
+  }
   /* yard-line divider with tick marks, holds the spread number */
   .yard-line {
     position: relative;
@@ -683,6 +688,7 @@ function renderWeek() {
             </div>
             <span class="team-win-pct">${awayPct}%</span>
           </div>
+          <div class="team-divider"></div>
           <div class="yard-line"><span class="spread-chip">${escapeHtml(spreadText)}</span></div>
           <div class="team-row ${homeFavored ? 'pick' : ''}">
             <div class="team-info">
@@ -717,6 +723,16 @@ function renderWeek() {
           <div class="stat-cell">
             <div class="stat-label">1H O/U</div>
             <div class="stat-value">${escapeHtml(g['1H O/U Total'] || '—')}</div>
+          </div>
+        </div>
+        <div class="stat-strip">
+          <div class="stat-cell">
+            <div class="stat-label">1H ${escapeHtml(g['Away'])} Total</div>
+            <div class="stat-value">${escapeHtml(g['1H Away Team Total'] || '—')}</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">1H ${escapeHtml(g['Home'])} Total</div>
+            <div class="stat-value">${escapeHtml(g['1H Home Team Total'] || '—')}</div>
           </div>
         </div>
         <div class="card-footer">
