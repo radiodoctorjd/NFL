@@ -280,12 +280,25 @@
     border-top: 1px solid var(--line);
     background: rgba(255,255,255,0.015);
   }
+  .stat-strip.cols-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
   .stat-cell {
     padding: 10px 12px;
     text-align: center;
     border-right: 1px solid var(--line);
   }
   .stat-cell:last-child { border-right: none; }
+  .cols-4 .stat-cell {
+    padding: 10px 6px;
+  }
+  .cols-4 .stat-label {
+    font-size: 8px;
+    letter-spacing: 0.04em;
+  }
+  .cols-4 .stat-value {
+    font-size: 12px;
+  }
   .stat-label {
     font-family: 'JetBrains Mono', monospace;
     font-size: 9px;
@@ -701,7 +714,7 @@ function renderWeek() {
             <div class="stat-value">${escapeHtml(stripSign(g['Away Team Total']) || '—')}</div>
           </div>
           <div class="stat-cell">
-            <div class="stat-label">O/U</div>
+            <div class="stat-label">Full Game Total</div>
             <div class="stat-value">${escapeHtml(stripSign(g['O/U Total']) || '—')}</div>
           </div>
           <div class="stat-cell">
@@ -709,23 +722,21 @@ function renderWeek() {
             <div class="stat-value">${escapeHtml(stripSign(g['Home Team Total']) || '—')}</div>
           </div>
         </div>
-        <div class="stat-strip">
+        <div class="stat-strip cols-4">
+          <div class="stat-cell">
+            <div class="stat-label">${escapeHtml(g['Away'])} 1H Total</div>
+            <div class="stat-value">${escapeHtml(stripSign(g['1H Away Team Total']) || '—')}</div>
+          </div>
           <div class="stat-cell">
             <div class="stat-label">1H Spread</div>
             <div class="stat-value">${escapeHtml(spread1HText)}</div>
           </div>
           <div class="stat-cell">
-            <div class="stat-label">1H O/U</div>
+            <div class="stat-label">1H Total</div>
             <div class="stat-value">${escapeHtml(stripSign(g['1H O/U Total']) || '—')}</div>
           </div>
-        </div>
-        <div class="stat-strip">
           <div class="stat-cell">
-            <div class="stat-label">1H ${escapeHtml(g['Away'])} Total</div>
-            <div class="stat-value">${escapeHtml(stripSign(g['1H Away Team Total']) || '—')}</div>
-          </div>
-          <div class="stat-cell">
-            <div class="stat-label">1H ${escapeHtml(g['Home'])} Total</div>
+            <div class="stat-label">${escapeHtml(g['Home'])} 1H Total</div>
             <div class="stat-value">${escapeHtml(stripSign(g['1H Home Team Total']) || '—')}</div>
           </div>
         </div>
