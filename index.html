@@ -339,6 +339,76 @@
   }
 
   /* ── STANDINGS TABLE ────────────────────────────────── */
+  .schedule-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .schedule-select {
+    background: var(--card-bg);
+    border: 1px solid var(--line);
+    color: var(--chalk);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .schedule-select:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .schedule-mode-toggle {
+    display: flex;
+    gap: 4px;
+    background: var(--card-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px;
+  }
+  .schedule-mode-btn {
+    background: none;
+    border: none;
+    color: var(--yard-gray);
+    font-family: 'Oswald', sans-serif;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .schedule-mode-btn.active { background: var(--turf-dim); color: var(--chalk); }
+
+  .schedule-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 90px 1fr 90px;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  .schedule-row:last-child { border-bottom: none; }
+  .schedule-row:hover { background: var(--card-hover); }
+  .schedule-date { color: var(--yard-gray); font-size: 11px; }
+  .schedule-team { color: var(--chalk); font-family: 'Inter', sans-serif; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+  .schedule-team img { width: 20px; height: 20px; object-fit: contain; }
+  .schedule-score { text-align: center; font-weight: 700; }
+  .schedule-status {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-align: right;
+  }
+  .schedule-status.final { color: var(--turf); }
+  .schedule-status.scheduled { color: var(--yard-gray); }
+  .schedule-list {
+    background: var(--card-bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
   .division-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -531,6 +601,7 @@
 
 <div class="tab-bar">
   <button class="tab active" id="tab-week" onclick="switchTab('week')">This Week</button>
+  <button class="tab" id="tab-schedule" onclick="switchTab('schedule')">Schedule</button>
   <button class="tab" id="tab-division" onclick="switchTab('division')">Standings</button>
   <button class="tab" id="tab-standings" onclick="switchTab('standings')">Elo Ratings</button>
 </div>
@@ -557,6 +628,7 @@ const GIDS = {
   teamStats:  1796448412,
   gameLog:    1582067386,
   injuries:   1383662734,
+  fullSchedule: 968251506,
 };
 
 /* ============================================================
@@ -589,7 +661,7 @@ function teamLogo(abbr) {
   return `https://a.espncdn.com/i/teamlogos/nfl/500/${slug}.png`;
 }
 
-let DATA = { elo: [], thisWeek: [], teamStats: [], gameLog: [], injuries: [] };
+let DATA = { elo: [], thisWeek: [], teamStats: [], gameLog: [], injuries: [], fullSchedule: [] };
 let currentTab = 'week';
 
 /* ============================================================
@@ -653,6 +725,21 @@ async function loadAll() {
     DATA.gameLog = rowsToObjects(gameLog);
     DATA.injuries = rowsToObjects(injuries);
 
+    // Full Schedule is fetched separately and non-fatally — the GID may not
+    // be configured yet (placeholder 0), or the tab may not exist yet in
+    // older Sheets that haven't run Setup/Rebuild since this was added.
+    // The Schedule tab handles an empty DATA.fullSchedule with its own
+    // clear "not set up" message rather than the whole page erroring out.
+    if (GIDS.fullSchedule) {
+      try {
+        const fullSchedule = await fetchCSV(GIDS.fullSchedule);
+        DATA.fullSchedule = rowsToObjects(fullSchedule);
+      } catch (scheduleErr) {
+        console.error('Full schedule fetch failed (non-fatal):', scheduleErr);
+        DATA.fullSchedule = [];
+      }
+    }
+
     const now = new Date();
     pill.textContent = 'Updated ' + now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     render();
@@ -670,6 +757,7 @@ async function loadAll() {
 function switchTab(tab) {
   currentTab = tab;
   document.getElementById('tab-week').classList.toggle('active', tab === 'week');
+  document.getElementById('tab-schedule').classList.toggle('active', tab === 'schedule');
   document.getElementById('tab-division').classList.toggle('active', tab === 'division');
   document.getElementById('tab-standings').classList.toggle('active', tab === 'standings');
   render();
@@ -677,6 +765,7 @@ function switchTab(tab) {
 
 function render() {
   if (currentTab === 'week') renderWeek();
+  else if (currentTab === 'schedule') renderSchedule();
   else if (currentTab === 'division') renderDivisionStandings();
   else renderStandings();
 }
@@ -877,6 +966,90 @@ function renderStandings() {
 
   html += `</tbody></table>`;
   main.innerHTML = html;
+}
+
+/* ============================================================
+   SCHEDULE — browse by week or by team
+   ============================================================ */
+let scheduleMode = 'week'; // 'week' | 'team'
+let scheduleSelectedWeek = null;
+let scheduleSelectedTeam = null;
+
+function renderSchedule() {
+  const main = document.getElementById('main');
+  const games = DATA.fullSchedule;
+
+  if (!GIDS.fullSchedule) {
+    main.innerHTML = `<div class="state-msg">Schedule tab isn't fully set up yet.<br><strong>Run "Refresh Full Schedule Only" in the Sheet, then add its GID to the website config.</strong></div>`;
+    return;
+  }
+  if (!games.length) {
+    main.innerHTML = `<div class="state-msg">No schedule data found.<br><strong>Run the prediction model (or "Refresh Full Schedule Only") in your Sheet, then refresh.</strong></div>`;
+    return;
+  }
+
+  const weeks = [...new Set(games.map(g => g['Week']))].sort((a,b) => Number(a)-Number(b));
+  const teams = [...new Set(games.flatMap(g => [g['Away'], g['Home']]))].sort();
+
+  if (scheduleSelectedWeek === null) scheduleSelectedWeek = weeks[0];
+  if (scheduleSelectedTeam === null) scheduleSelectedTeam = teams[0];
+
+  let html = `
+    <div class="week-label">Full Season Schedule</div>
+    <div class="schedule-controls">
+      <div class="schedule-mode-toggle">
+        <button class="schedule-mode-btn ${scheduleMode==='week'?'active':''}" onclick="setScheduleMode('week')">By Week</button>
+        <button class="schedule-mode-btn ${scheduleMode==='team'?'active':''}" onclick="setScheduleMode('team')">By Team</button>
+      </div>
+  `;
+
+  if (scheduleMode === 'week') {
+    html += `<select class="schedule-select" onchange="setScheduleWeek(this.value)">`;
+    weeks.forEach(w => html += `<option value="${escapeHtml(w)}" ${w===scheduleSelectedWeek?'selected':''}>Week ${escapeHtml(w)}</option>`);
+    html += `</select>`;
+  } else {
+    html += `<select class="schedule-select" onchange="setScheduleTeam(this.value)">`;
+    teams.forEach(t => html += `<option value="${escapeHtml(t)}" ${t===scheduleSelectedTeam?'selected':''}>${escapeHtml(teamName(t))}</option>`);
+    html += `</select>`;
+  }
+  html += `</div>`;
+
+  const filtered = scheduleMode === 'week'
+    ? games.filter(g => g['Week'] === scheduleSelectedWeek)
+    : games.filter(g => g['Away'] === scheduleSelectedTeam || g['Home'] === scheduleSelectedTeam)
+        .sort((a,b) => Number(a['Week']) - Number(b['Week']));
+
+  html += `<div class="schedule-list">`;
+  filtered.forEach(g => {
+    const isFinal = g['Status'] === 'Final';
+    const dateStr = formatDate(g['Date']);
+    const weekTag = scheduleMode === 'team' ? `W${g['Week']} · ` : '';
+    html += `
+      <div class="schedule-row">
+        <div class="schedule-date">${weekTag}${escapeHtml(dateStr)}</div>
+        <div class="schedule-team"><img src="${teamLogo(g['Away'])}" alt="" onerror="this.style.visibility='hidden'">${escapeHtml(teamName(g['Away']))}</div>
+        <div class="schedule-score">${isFinal ? escapeHtml(g['Away Score']) + ' – ' + escapeHtml(g['Home Score']) : '@'}</div>
+        <div class="schedule-team"><img src="${teamLogo(g['Home'])}" alt="" onerror="this.style.visibility='hidden'">${escapeHtml(teamName(g['Home']))}</div>
+        <div class="schedule-status ${isFinal ? 'final' : 'scheduled'}">${escapeHtml(g['Status'] || '')}</div>
+      </div>
+    `;
+  });
+  html += `</div>`;
+
+  main.innerHTML = html;
+}
+
+function setScheduleMode(mode) {
+  scheduleMode = mode;
+  renderSchedule();
+}
+function setScheduleWeek(week) {
+  scheduleSelectedWeek = week;
+  renderSchedule();
+}
+function setScheduleTeam(team) {
+  scheduleSelectedTeam = team;
+  renderSchedule();
 }
 
 /* ============================================================
