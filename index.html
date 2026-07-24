@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NFL Predictions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --field:      #0B0E14;
+    --field-alt:  #10141D;
+    --chalk:      #F5F3EC;
+    --chalk-dim:  #B9B6AC;
+    --yard-gray:  #6E6A5E;
+    --turf:       #3D8B5F;
+    --turf-dim:   #285C3E;
+    --endzone:    #C4432E;
+    --gold:       #D4A94C;
+    --line:       #232838;
+    --card-bg:    #12161F;
+    --card-hover: #161B26;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--field);
+    color: var(--chalk);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── HEADER ─────────────────────────────────────────── */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(11,14,20,0.92);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+    padding: 18px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .brand-mark {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: 0.02em;
+    color: var(--chalk);
+  }
+  .brand-mark span { color: var(--endzone); }
+  .brand-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--yard-gray);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  #updated-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--chalk-dim);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: border-color .15s;
+  }
+  #updated-pill:hover { border-color: var(--turf); }
+  #updated-pill:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  /* ── TABS ───────────────────────────────────────────── */
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    padding: 16px 28px 0;
+    max-width: 1240px;
+    margin: 0 auto;
+  }
+  .tab {
+    background: none;
+    border: none;
+    color: var(--yard-gray);
+    font-family: 'Oswald', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+  }
+  .tab:hover { color: var(--chalk); }
+  .tab.active { color: var(--chalk); border-bottom-color: var(--endzone); }
+  .tab:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  main {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 24px 28px 80px;
+  }
+
+  /* ── WEEK LABEL ─────────────────────────────────────── */
+  .week-label {
+    font-family: 'Oswald', sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--yard-gray);
+    margin: 4px 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .week-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  /* ── LOADING / EMPTY STATES ─────────────────────────── */
+  .state-msg {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--yard-gray);
+    text-align: center;
+    padding: 60px 20px;
+    line-height: 1.7;
+  }
+  .state-msg strong { color: var(--chalk-dim); }
+
+  /* ── GAME GRID ──────────────────────────────────────── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+  }
+
+  /* ── CARD ───────────────────────────────────────────── */
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, transform .1s;
+    overflow: hidden;
+  }
+  .card:hover { background: var(--card-hover); border-color: #2C3244; }
+  .card:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .card:active { transform: scale(0.997); }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--yard-gray);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .conf-dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .conf-dot::before {
+    content: '';
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--yard-gray);
+  }
+  .conf-dot.strong::before { background: var(--turf); box-shadow: 0 0 6px var(--turf); }
+  .conf-dot.moderate::before { background: var(--gold); }
+  .conf-dot.tossup::before { background: var(--endzone); }
+
+  .matchup {
+    padding: 12px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .team-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .team-name {
+    font-family: 'Oswald', sans-serif;
+    font-size: 19px;
+    font-weight: 500;
+    color: var(--chalk-dim);
+  }
+  .team-row.pick .team-name { color: var(--chalk); font-weight: 600; }
+  .team-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--yard-gray);
+    margin-right: 8px;
+    letter-spacing: 0.04em;
+  }
+  .team-win-pct {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--yard-gray);
+  }
+  .team-row.pick .team-win-pct { color: var(--turf); font-weight: 700; }
+
+  /* yard-line divider with tick marks, holds the spread number */
+  .yard-line {
+    position: relative;
+    height: 1px;
+    background: var(--line);
+    margin: 2px 0 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .yard-line::before, .yard-line::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    width: 1px;
+    height: 7px;
+    background: var(--line);
+  }
+  .yard-line::before { left: 8%; }
+  .yard-line::after { right: 8%; }
+  .spread-chip {
+    background: var(--field);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 3px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--gold);
+    white-space: nowrap;
+  }
+
+  .stat-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-top: 1px solid var(--line);
+    background: rgba(255,255,255,0.015);
+  }
+  .stat-cell {
+    padding: 10px 12px;
+    text-align: center;
+    border-right: 1px solid var(--line);
+  }
+  .stat-cell:last-child { border-right: none; }
+  .stat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--yard-gray);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 3px;
+  }
+  .stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--chalk-dim);
+    font-weight: 500;
+  }
+
+  .card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 16px;
+    border-top: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--yard-gray);
+  }
+  .weather-chip { display: flex; align-items: center; gap: 5px; }
+  .injury-flag {
+    color: var(--endzone);
+    font-weight: 700;
+  }
+
+  /* ── STANDINGS TABLE ────────────────────────────────── */
+  .standings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+  .standings-table th {
+    text-align: left;
+    font-family: 'Oswald', sans-serif;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--yard-gray);
+    border-bottom: 1px solid var(--line);
+    padding: 10px 12px;
+    font-weight: 500;
+  }
+  .standings-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+    color: var(--chalk-dim);
+  }
+  .standings-table tr:hover td { background: var(--card-hover); }
+  .rank-cell { color: var(--yard-gray); width: 32px; }
+  .team-cell { color: var(--chalk); font-family: 'Inter', sans-serif; font-weight: 500; }
+  .elo-cell { color: var(--gold); font-weight: 700; }
+
+  /* ── MODAL ──────────────────────────────────────────── */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(5,7,11,0.82);
+    backdrop-filter: blur(3px);
+    z-index: 100;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 16px;
+    overflow-y: auto;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--card-bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    max-width: 640px;
+    width: 100%;
+    position: relative;
+    animation: rise .18s ease-out;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .modal-close {
+    position: absolute;
+    top: 14px; right: 14px;
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--chalk-dim);
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal-close:hover { border-color: var(--endzone); color: var(--endzone); }
+  .modal-body { padding: 28px; }
+  .modal-header {
+    font-family: 'Oswald', sans-serif;
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .modal-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--yard-gray);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 20px;
+  }
+  .modal-section {
+    margin-bottom: 20px;
+  }
+  .modal-section h4 {
+    font-family: 'Oswald', sans-serif;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--turf);
+    margin: 0 0 10px;
+  }
+  .modal-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .modal-team-block {
+    background: var(--field);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .modal-team-block .tname {
+    font-family: 'Oswald', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .modal-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12.5px;
+    padding: 4px 0;
+    color: var(--chalk-dim);
+  }
+  .modal-row .k { color: var(--yard-gray); }
+  .modal-row .v { font-family: 'JetBrains Mono', monospace; color: var(--chalk); }
+  .injury-line {
+    font-size: 12px;
+    padding: 6px 0;
+    border-top: 1px solid var(--line);
+    color: var(--chalk-dim);
+    line-height: 1.5;
+  }
+  .injury-line:first-child { border-top: none; }
+  .injury-status {
+    color: var(--endzone);
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    margin-right: 6px;
+  }
+
+  @media (max-width: 640px) {
+    header { padding: 14px 16px; }
+    main { padding: 20px 16px 60px; }
+    .modal-cols { grid-template-columns: 1fr; }
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="brand-mark">GRIDIRON<span>ELO</span></span>
+    <span class="brand-sub">Prediction Model</span>
+  </div>
+  <div class="header-right">
+    <button id="updated-pill" onclick="loadAll()">Loading…</button>
+  </div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab active" id="tab-week" onclick="switchTab('week')">This Week</button>
+  <button class="tab" id="tab-standings" onclick="switchTab('standings')">Elo Ratings</button>
+</div>
+
+<main id="main">
+  <div class="state-msg">Loading predictions…</div>
+</main>
+
+<div class="overlay" id="overlay" onclick="closeOverlay(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()" aria-label="Close">✕</button>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG — Google Sheet ID + tab GIDs
+   ============================================================ */
+const SHEET_ID = '13Ya2a_4daHw1_w_bAGpu9uiKl7Cd0-2EdD8hrkDsj2M';
+const GIDS = {
+  elo:        2031293638,
+  thisWeek:   1804374390,
+  teamStats:  1796448412,
+  gameLog:    1582067386,
+  injuries:   1383662734,
+};
+
+/* ============================================================
+   GLOBALS
+   ============================================================ */
+let DATA = { elo: [], thisWeek: [], teamStats: [], gameLog: [], injuries: [] };
+let currentTab = 'week';
+
+/* ============================================================
+   CSV FETCH + PARSE
+   ============================================================ */
+async function fetchCSV(gid) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`Failed to fetch GID ${gid}: ${resp.status}`);
+  return parseCSV(await resp.text());
+}
+
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i], next = text[i+1];
+    if (inQuotes) {
+      if (c === '"' && next === '"') { field += '"'; i++; }
+      else if (c === '"') { inQuotes = false; }
+      else { field += c; }
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else if (c === '\r') { /* skip */ }
+      else { field += c; }
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(c => c !== ''));
+}
+
+function rowsToObjects(rows) {
+  if (!rows.length) return [];
+  const headers = rows[0].map(h => h.trim());
+  return rows.slice(1).map(r => {
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = (r[i] !== undefined ? r[i].trim() : ''));
+    return obj;
+  });
+}
+
+/* ============================================================
+   LOAD ALL DATA
+   ============================================================ */
+async function loadAll() {
+  const pill = document.getElementById('updated-pill');
+  pill.textContent = 'Refreshing…';
+  try {
+    const [elo, thisWeek, teamStats, gameLog, injuries] = await Promise.all([
+      fetchCSV(GIDS.elo),
+      fetchCSV(GIDS.thisWeek),
+      fetchCSV(GIDS.teamStats),
+      fetchCSV(GIDS.gameLog),
+      fetchCSV(GIDS.injuries),
+    ]);
+    DATA.elo = rowsToObjects(elo);
+    DATA.thisWeek = rowsToObjects(thisWeek);
+    DATA.teamStats = rowsToObjects(teamStats);
+    DATA.gameLog = rowsToObjects(gameLog);
+    DATA.injuries = rowsToObjects(injuries);
+
+    const now = new Date();
+    pill.textContent = 'Updated ' + now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    render();
+  } catch (err) {
+    pill.textContent = 'Refresh failed — tap to retry';
+    document.getElementById('main').innerHTML =
+      `<div class="state-msg">Couldn't load live data.<br><strong>${escapeHtml(err.message)}</strong><br>Tap the pill above to try again.</div>`;
+    console.error(err);
+  }
+}
+
+/* ============================================================
+   RENDER ROUTER
+   ============================================================ */
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tab-week').classList.toggle('active', tab === 'week');
+  document.getElementById('tab-standings').classList.toggle('active', tab === 'standings');
+  render();
+}
+
+function render() {
+  if (currentTab === 'week') renderWeek();
+  else renderStandings();
+}
+
+/* ============================================================
+   THIS WEEK — CARD GRID
+   ============================================================ */
+function renderWeek() {
+  const main = document.getElementById('main');
+  const games = DATA.thisWeek;
+
+  if (!games.length) {
+    main.innerHTML = `<div class="state-msg">No games found for this week.<br><strong>Run the prediction model in your Sheet, then refresh.</strong></div>`;
+    return;
+  }
+
+  const weekNum = games[0]['Week'] || '';
+  let html = `<div class="week-label">Week ${escapeHtml(weekNum)}</div><div class="grid">`;
+
+  games.forEach((g, idx) => {
+    const awayPct = Math.round(parseFloat(g['Away Win%'] || 0) * 100);
+    const homePct = Math.round(parseFloat(g['Home Win%'] || 0) * 100);
+    const homeFavored = homePct >= awayPct;
+    const spread = parseFloat(g['Spread (Home)'] || 0);
+    const spreadText = spread === 0 ? 'PICK' :
+      (spread > 0 ? `${g['Home']} -${spread}` : `${g['Away']} -${Math.abs(spread)}`);
+
+    const conf = (g['Confidence'] || '').toLowerCase();
+    const confClass = conf.includes('strong') ? 'strong' : conf.includes('moderate') ? 'moderate' : 'tossup';
+    const confLabel = conf.includes('strong') ? 'Strong' : conf.includes('moderate') ? 'Moderate' : 'Toss-up';
+
+    const hasInjury = DATA.injuries.some(inj => inj['Team'] === g['Away'] || inj['Team'] === g['Home']);
+
+    html += `
+      <div class="card" tabindex="0" role="button" onclick="openGameModal(${idx})" onkeydown="if(event.key==='Enter')openGameModal(${idx})">
+        <div class="card-top">
+          <span>${escapeHtml(formatDate(g['Game Date']))}</span>
+          <span class="conf-dot ${confClass}">${confLabel}</span>
+        </div>
+        <div class="matchup">
+          <div class="team-row ${!homeFavored ? 'pick' : ''}">
+            <div><span class="team-tag">AWAY</span><span class="team-name">${escapeHtml(g['Away'])}</span></div>
+            <span class="team-win-pct">${awayPct}%</span>
+          </div>
+          <div class="yard-line"><span class="spread-chip">${escapeHtml(spreadText)}</span></div>
+          <div class="team-row ${homeFavored ? 'pick' : ''}">
+            <div><span class="team-tag">HOME</span><span class="team-name">${escapeHtml(g['Home'])}</span></div>
+            <span class="team-win-pct">${homePct}%</span>
+          </div>
+        </div>
+        <div class="stat-strip">
+          <div class="stat-cell">
+            <div class="stat-label">O/U</div>
+            <div class="stat-value">${escapeHtml(g['O/U Total'] || '—')}</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">1H Spread</div>
+            <div class="stat-value">${escapeHtml(g['1H Spread (Home)'] || '—')}</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">1H O/U</div>
+            <div class="stat-value">${escapeHtml(g['1H O/U Total'] || '—')}</div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span class="weather-chip">${weatherIcon(g['Weather'])} ${escapeHtml(g['Weather'] || 'TBD')}${g['Temp (F)'] ? ' · ' + escapeHtml(g['Temp (F)']) + '°F' : ''}</span>
+          ${hasInjury ? '<span class="injury-flag">⚑ Injury notes</span>' : ''}
+        </div>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  main.innerHTML = html;
+}
+
+function weatherIcon(desc) {
+  const d = (desc || '').toLowerCase();
+  if (d.includes('dome') || d.includes('indoor')) return '🏟️';
+  if (d.includes('rain')) return '🌧️';
+  if (d.includes('snow')) return '❄️';
+  if (d.includes('wind')) return '💨';
+  if (d.includes('cloud')) return '☁️';
+  if (d.includes('clear') || d.includes('sun')) return '☀️';
+  return '🌡️';
+}
+
+function formatDate(raw) {
+  if (!raw) return 'TBD';
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+/* ============================================================
+   ELO STANDINGS TABLE
+   ============================================================ */
+function renderStandings() {
+  const main = document.getElementById('main');
+  const teams = DATA.elo;
+
+  if (!teams.length) {
+    main.innerHTML = `<div class="state-msg">No Elo data found.<br><strong>Run the prediction model in your Sheet, then refresh.</strong></div>`;
+    return;
+  }
+
+  let html = `
+    <div class="week-label">League Power Rankings</div>
+    <table class="standings-table">
+      <thead>
+        <tr>
+          <th class="rank-cell">#</th>
+          <th>Team</th>
+          <th>Conf</th>
+          <th>Div</th>
+          <th>Elo</th>
+          <th>W</th>
+          <th>L</th>
+          <th>T</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  teams.forEach(t => {
+    html += `
+      <tr>
+        <td class="rank-cell">${escapeHtml(t['Rank'])}</td>
+        <td class="team-cell">${escapeHtml(t['Team'])}</td>
+        <td>${escapeHtml(t['Conf'])}</td>
+        <td>${escapeHtml(t['Div'])}</td>
+        <td class="elo-cell">${escapeHtml(t['Elo Rating'])}</td>
+        <td>${escapeHtml(t['W'])}</td>
+        <td>${escapeHtml(t['L'])}</td>
+        <td>${escapeHtml(t['T'])}</td>
+      </tr>
+    `;
+  });
+
+  html += `</tbody></table>`;
+  main.innerHTML = html;
+}
+
+/* ============================================================
+   GAME DETAIL MODAL
+   ============================================================ */
+function openGameModal(idx) {
+  const g = DATA.thisWeek[idx];
+  if (!g) return;
+
+  const awayStats = DATA.teamStats.find(t => t['Abbr'] === g['Away']) || {};
+  const homeStats = DATA.teamStats.find(t => t['Abbr'] === g['Home']) || {};
+  const awayInjuries = DATA.injuries.filter(inj => inj['Team'] === g['Away']);
+  const homeInjuries = DATA.injuries.filter(inj => inj['Team'] === g['Home']);
+
+  const awayH2H = DATA.gameLog.filter(row =>
+    (row['Away'] === g['Away'] && row['Home'] === g['Home']) ||
+    (row['Away'] === g['Home'] && row['Home'] === g['Away'])
+  ).slice(-3);
+
+  const body = document.getElementById('modal-body');
+  body.innerHTML = `
+    <div class="modal-header">${escapeHtml(g['Away'])} @ ${escapeHtml(g['Home'])}</div>
+    <div class="modal-sub">Week ${escapeHtml(g['Week'])} · ${escapeHtml(formatDate(g['Game Date']))}</div>
+
+    <div class="modal-cols">
+      <div class="modal-team-block">
+        <div class="tname">${escapeHtml(g['Away'])} <span style="color:var(--yard-gray);font-size:11px;">AWAY</span></div>
+        <div class="modal-row"><span class="k">Starting QB</span><span class="v">${escapeHtml(g['Away Starting QB'] || 'TBD')}</span></div>
+        <div class="modal-row"><span class="k">Record</span><span class="v">${escapeHtml(awayStats['W'] || '—')}-${escapeHtml(awayStats['L'] || '—')}${awayStats['T'] && awayStats['T'] !== '0' ? '-' + escapeHtml(awayStats['T']) : ''}</span></div>
+        <div class="modal-row"><span class="k">PF/G</span><span class="v">${escapeHtml(awayStats['PF/G'] || '—')}</span></div>
+        <div class="modal-row"><span class="k">PA/G</span><span class="v">${escapeHtml(awayStats['PA/G'] || '—')}</span></div>
+        <div class="modal-row"><span class="k">Elo</span><span class="v">${escapeHtml(g['Away Elo'] || '—')}</span></div>
+      </div>
+      <div class="modal-team-block">
+        <div class="tname">${escapeHtml(g['Home'])} <span style="color:var(--yard-gray);font-size:11px;">HOME</span></div>
+        <div class="modal-row"><span class="k">Starting QB</span><span class="v">${escapeHtml(g['Home Starting QB'] || 'TBD')}</span></div>
+        <div class="modal-row"><span class="k">Record</span><span class="v">${escapeHtml(homeStats['W'] || '—')}-${escapeHtml(homeStats['L'] || '—')}${homeStats['T'] && homeStats['T'] !== '0' ? '-' + escapeHtml(homeStats['T']) : ''}</span></div>
+        <div class="modal-row"><span class="k">PF/G</span><span class="v">${escapeHtml(homeStats['PF/G'] || '—')}</span></div>
+        <div class="modal-row"><span class="k">PA/G</span><span class="v">${escapeHtml(homeStats['PA/G'] || '—')}</span></div>
+        <div class="modal-row"><span class="k">Elo</span><span class="v">${escapeHtml(g['Home Elo'] || '—')}</span></div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <h4>Injury Report</h4>
+      ${renderInjuryList(awayInjuries, homeInjuries, g)}
+    </div>
+
+    <div class="modal-section">
+      <h4>Head-to-Head (Recent)</h4>
+      ${renderH2H(awayH2H)}
+    </div>
+  `;
+
+  document.getElementById('overlay').classList.add('open');
+}
+
+function renderInjuryList(awayInj, homeInj, g) {
+  const all = [...awayInj.map(i => ({...i, side: g['Away']})), ...homeInj.map(i => ({...i, side: g['Home']}))];
+  if (!all.length) return `<div class="injury-line" style="color:var(--yard-gray)">None reported.</div>`;
+  return all.map(i => `
+    <div class="injury-line">
+      <span class="injury-status">${escapeHtml(i['Status'] || '')}</span>
+      <strong>${escapeHtml(i['Player'] || 'Unknown')}</strong> (${escapeHtml(i['Position'] || '—')}, ${escapeHtml(i['Team'] || '')})
+      ${i['Note'] ? ' — ' + escapeHtml(i['Note']) : ''}
+    </div>
+  `).join('');
+}
+
+function renderH2H(rows) {
+  if (!rows.length) return `<div class="injury-line" style="color:var(--yard-gray)">No recent meetings on record.</div>`;
+  return rows.map(r => `
+    <div class="injury-line">
+      <strong>${escapeHtml(r['Away'])} ${escapeHtml(r['Away Score'])} — ${escapeHtml(r['Home Score'])} ${escapeHtml(r['Home'])}</strong>
+      <span style="color:var(--yard-gray)"> · ${escapeHtml(formatDate(r['Date']))}</span>
+    </div>
+  `).join('');
+}
+
+function closeModal() {
+  document.getElementById('overlay').classList.remove('open');
+}
+function closeOverlay(e) {
+  if (e.target.id === 'overlay') closeModal();
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+/* ============================================================
+   UTIL
+   ============================================================ */
+function escapeHtml(str) {
+  if (str === undefined || str === null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+loadAll();
+</script>
+</body>
+</html>
