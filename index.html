@@ -256,22 +256,12 @@
   .yard-line {
     position: relative;
     height: 1px;
-    background: var(--line);
+    background: transparent;
     margin: 2px 0 6px;
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  .yard-line::before, .yard-line::after {
-    content: '';
-    position: absolute;
-    top: -3px;
-    width: 1px;
-    height: 7px;
-    background: var(--line);
-  }
-  .yard-line::before { left: 8%; }
-  .yard-line::after { right: 8%; }
   .spread-chip {
     background: var(--field);
     border: 1px solid var(--line);
@@ -663,6 +653,10 @@ function renderWeek() {
     const spreadText = spread === 0 ? 'PICK' :
       (spread > 0 ? `${g['Home']} -${spread}` : `${g['Away']} -${Math.abs(spread)}`);
 
+    const spread1H = parseFloat(g['1H Spread (Home)'] || 0);
+    const spread1HText = spread1H === 0 ? 'PICK' :
+      (spread1H > 0 ? `${g['Home']} -${spread1H}` : `${g['Away']} -${Math.abs(spread1H)}`);
+
     const conf = (g['Confidence'] || '').toLowerCase();
     const confClass = conf.includes('strong') ? 'strong' : conf.includes('moderate') ? 'moderate' : 'tossup';
     const confLabel = conf.includes('strong') ? 'Strong' : conf.includes('moderate') ? 'Moderate' : 'Toss-up';
@@ -704,35 +698,35 @@ function renderWeek() {
         <div class="stat-strip">
           <div class="stat-cell">
             <div class="stat-label">${escapeHtml(g['Away'])} Total</div>
-            <div class="stat-value">${escapeHtml(g['Away Team Total'] || '—')}</div>
+            <div class="stat-value">${escapeHtml(stripSign(g['Away Team Total']) || '—')}</div>
           </div>
           <div class="stat-cell">
             <div class="stat-label">O/U</div>
-            <div class="stat-value">${escapeHtml(g['O/U Total'] || '—')}</div>
+            <div class="stat-value">${escapeHtml(stripSign(g['O/U Total']) || '—')}</div>
           </div>
           <div class="stat-cell">
             <div class="stat-label">${escapeHtml(g['Home'])} Total</div>
-            <div class="stat-value">${escapeHtml(g['Home Team Total'] || '—')}</div>
+            <div class="stat-value">${escapeHtml(stripSign(g['Home Team Total']) || '—')}</div>
           </div>
         </div>
         <div class="stat-strip">
           <div class="stat-cell">
             <div class="stat-label">1H Spread</div>
-            <div class="stat-value">${escapeHtml(g['1H Spread (Home)'] || '—')}</div>
+            <div class="stat-value">${escapeHtml(spread1HText)}</div>
           </div>
           <div class="stat-cell">
             <div class="stat-label">1H O/U</div>
-            <div class="stat-value">${escapeHtml(g['1H O/U Total'] || '—')}</div>
+            <div class="stat-value">${escapeHtml(stripSign(g['1H O/U Total']) || '—')}</div>
           </div>
         </div>
         <div class="stat-strip">
           <div class="stat-cell">
             <div class="stat-label">1H ${escapeHtml(g['Away'])} Total</div>
-            <div class="stat-value">${escapeHtml(g['1H Away Team Total'] || '—')}</div>
+            <div class="stat-value">${escapeHtml(stripSign(g['1H Away Team Total']) || '—')}</div>
           </div>
           <div class="stat-cell">
             <div class="stat-label">1H ${escapeHtml(g['Home'])} Total</div>
-            <div class="stat-value">${escapeHtml(g['1H Home Team Total'] || '—')}</div>
+            <div class="stat-value">${escapeHtml(stripSign(g['1H Home Team Total']) || '—')}</div>
           </div>
         </div>
         <div class="card-footer">
@@ -758,6 +752,11 @@ function weatherIcon(desc) {
   return '🌡️';
 }
 
+function stripSign(raw) {
+  if (raw === undefined || raw === null || raw === '') return raw;
+  return String(raw).replace(/^\+/, '');
+}
+
 function parsePercent(raw) {
   if (raw === undefined || raw === null || raw === '') return 0;
   const str = String(raw).trim();
@@ -774,11 +773,12 @@ function formatDate(raw) {
   if (!raw) return 'TBD';
   const d = new Date(raw);
   if (isNaN(d.getTime())) return raw;
-  const hasRealTime = !(d.getHours() === 0 && d.getMinutes() === 0);
-  const opts = hasRealTime
-    ? { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }
-    : { weekday: 'short', month: 'short', day: 'numeric' };
-  return d.toLocaleDateString('en-US', opts);
+  const hasRealTime = !(d.getUTCHours() === 0 && d.getUTCMinutes() === 0);
+  const dateOpts = { weekday: 'short', month: 'short', day: 'numeric' };
+  const datePart = d.toLocaleDateString('en-US', dateOpts);
+  if (!hasRealTime) return `${datePart} · Time TBD`;
+  const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${datePart} · ${timePart}`;
 }
 
 /* ============================================================
