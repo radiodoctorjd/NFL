@@ -402,6 +402,14 @@
   }
   .schedule-status.final { color: var(--turf); }
   .schedule-status.scheduled { color: var(--yard-gray); }
+  .schedule-venue {
+    color: var(--yard-gray);
+    font-size: 9.5px;
+    text-transform: none;
+    letter-spacing: 0;
+    margin-top: 3px;
+    font-family: 'Inter', sans-serif;
+  }
   .schedule-list {
     background: var(--card-bg);
     border: 1px solid var(--line);
@@ -1024,13 +1032,17 @@ function renderSchedule() {
     const isFinal = g['Status'] === 'Final';
     const dateStr = formatDate(g['Date']);
     const weekTag = scheduleMode === 'team' ? `W${g['Week']} · ` : '';
+    const venue = g['Venue'] || '';
     html += `
       <div class="schedule-row">
         <div class="schedule-date">${weekTag}${escapeHtml(dateStr)}</div>
         <div class="schedule-team"><img src="${teamLogo(g['Away'])}" alt="" onerror="this.style.visibility='hidden'">${escapeHtml(teamName(g['Away']))}</div>
         <div class="schedule-score">${isFinal ? escapeHtml(g['Away Score']) + ' – ' + escapeHtml(g['Home Score']) : '@'}</div>
         <div class="schedule-team"><img src="${teamLogo(g['Home'])}" alt="" onerror="this.style.visibility='hidden'">${escapeHtml(teamName(g['Home']))}</div>
-        <div class="schedule-status ${isFinal ? 'final' : 'scheduled'}">${escapeHtml(g['Status'] || '')}</div>
+        <div class="schedule-status ${isFinal ? 'final' : 'scheduled'}">
+          ${escapeHtml(g['Status'] || '')}
+          ${venue ? `<div class="schedule-venue">${escapeHtml(venue)}</div>` : ''}
+        </div>
       </div>
     `;
   });
