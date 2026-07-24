@@ -868,17 +868,23 @@ function openGameModal(idx) {
         <div class="tname"><img src="${teamLogo(g['Away'])}" alt="" onerror="this.style.display='none'">${escapeHtml(teamName(g['Away']))} <span style="color:var(--yard-gray);font-size:11px;">AWAY</span></div>
         <div class="modal-row"><span class="k">Starting QB</span><span class="v">${escapeHtml(g['Away Starting QB'] || 'TBD')}</span></div>
         <div class="modal-row"><span class="k">Record</span><span class="v">${escapeHtml(awayStats['W'] || '—')}-${escapeHtml(awayStats['L'] || '—')}${awayStats['T'] && awayStats['T'] !== '0' ? '-' + escapeHtml(awayStats['T']) : ''}</span></div>
+        <div class="modal-row"><span class="k">Away Record</span><span class="v">${formatSplitRecord(awayStats['Away W'], awayStats['Away L'], awayStats['Away T'])}</span></div>
         <div class="modal-row"><span class="k">PF/G</span><span class="v">${escapeHtml(awayStats['PF/G'] || '—')}</span></div>
         <div class="modal-row"><span class="k">PA/G</span><span class="v">${escapeHtml(awayStats['PA/G'] || '—')}</span></div>
         <div class="modal-row"><span class="k">Elo</span><span class="v">${escapeHtml(g['Away Elo'] || '—')}</span></div>
+        <div class="modal-row"><span class="k">ATS Overall</span><span class="v">${escapeHtml(awayStats['ATS Overall'] || '—')}</span></div>
+        <div class="modal-row"><span class="k">ATS Away</span><span class="v">${escapeHtml(awayStats['ATS Away'] || '—')}</span></div>
       </div>
       <div class="modal-team-block">
         <div class="tname"><img src="${teamLogo(g['Home'])}" alt="" onerror="this.style.display='none'">${escapeHtml(teamName(g['Home']))} <span style="color:var(--yard-gray);font-size:11px;">HOME</span></div>
         <div class="modal-row"><span class="k">Starting QB</span><span class="v">${escapeHtml(g['Home Starting QB'] || 'TBD')}</span></div>
         <div class="modal-row"><span class="k">Record</span><span class="v">${escapeHtml(homeStats['W'] || '—')}-${escapeHtml(homeStats['L'] || '—')}${homeStats['T'] && homeStats['T'] !== '0' ? '-' + escapeHtml(homeStats['T']) : ''}</span></div>
+        <div class="modal-row"><span class="k">Home Record</span><span class="v">${formatSplitRecord(homeStats['Home W'], homeStats['Home L'], homeStats['Home T'])}</span></div>
         <div class="modal-row"><span class="k">PF/G</span><span class="v">${escapeHtml(homeStats['PF/G'] || '—')}</span></div>
         <div class="modal-row"><span class="k">PA/G</span><span class="v">${escapeHtml(homeStats['PA/G'] || '—')}</span></div>
         <div class="modal-row"><span class="k">Elo</span><span class="v">${escapeHtml(g['Home Elo'] || '—')}</span></div>
+        <div class="modal-row"><span class="k">ATS Overall</span><span class="v">${escapeHtml(homeStats['ATS Overall'] || '—')}</span></div>
+        <div class="modal-row"><span class="k">ATS Home</span><span class="v">${escapeHtml(homeStats['ATS Home'] || '—')}</span></div>
       </div>
     </div>
 
@@ -940,6 +946,14 @@ document.addEventListener('keydown', e => {
 /* ============================================================
    UTIL
    ============================================================ */
+function formatSplitRecord(w, l, t) {
+  if (w === undefined && l === undefined) return '—';
+  const wv = w || '0', lv = l || '0';
+  const tv = t && t !== '0' ? `-${t}` : '';
+  if (wv === '0' && lv === '0' && !tv) return '—';
+  return `${wv}-${lv}${tv}`;
+}
+
 function escapeHtml(str) {
   if (str === undefined || str === null) return '';
   return String(str)
