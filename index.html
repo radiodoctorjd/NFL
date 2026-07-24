@@ -204,21 +204,41 @@
   .team-row {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
+    align-items: center;
+  }
+  .team-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .team-logo {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+  .team-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
   }
   .team-name {
     font-family: 'Oswald', sans-serif;
-    font-size: 19px;
+    font-size: 17px;
     font-weight: 500;
     color: var(--chalk-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .team-row.pick .team-name { color: var(--chalk); font-weight: 600; }
   .team-tag {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
+    font-size: 9.5px;
     color: var(--yard-gray);
-    margin-right: 8px;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
   }
   .team-win-pct {
     font-family: 'JetBrains Mono', monospace;
@@ -409,6 +429,13 @@
     font-size: 16px;
     font-weight: 600;
     margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .modal-team-block .tname img {
+    width: 26px; height: 26px;
+    object-fit: contain;
   }
   .modal-row {
     display: flex;
@@ -491,6 +518,33 @@ const GIDS = {
 /* ============================================================
    GLOBALS
    ============================================================ */
+/* ============================================================
+   TEAM LOOKUP — full names + ESPN logo URLs, keyed by abbreviation
+   ============================================================ */
+const TEAM_INFO = {
+  ARI:{name:"Arizona Cardinals",logo:"ari"}, ATL:{name:"Atlanta Falcons",logo:"atl"},
+  BAL:{name:"Baltimore Ravens",logo:"bal"},  BUF:{name:"Buffalo Bills",logo:"buf"},
+  CAR:{name:"Carolina Panthers",logo:"car"}, CHI:{name:"Chicago Bears",logo:"chi"},
+  CIN:{name:"Cincinnati Bengals",logo:"cin"},CLE:{name:"Cleveland Browns",logo:"cle"},
+  DAL:{name:"Dallas Cowboys",logo:"dal"},    DEN:{name:"Denver Broncos",logo:"den"},
+  DET:{name:"Detroit Lions",logo:"det"},     GB: {name:"Green Bay Packers",logo:"gb"},
+  HOU:{name:"Houston Texans",logo:"hou"},    IND:{name:"Indianapolis Colts",logo:"ind"},
+  JAX:{name:"Jacksonville Jaguars",logo:"jax"},KC:{name:"Kansas City Chiefs",logo:"kc"},
+  LV: {name:"Las Vegas Raiders",logo:"lv"},  LAC:{name:"Los Angeles Chargers",logo:"lac"},
+  LAR:{name:"Los Angeles Rams",logo:"lar"},  MIA:{name:"Miami Dolphins",logo:"mia"},
+  MIN:{name:"Minnesota Vikings",logo:"min"}, NE: {name:"New England Patriots",logo:"ne"},
+  NO: {name:"New Orleans Saints",logo:"no"}, NYG:{name:"New York Giants",logo:"nyg"},
+  NYJ:{name:"New York Jets",logo:"nyj"},     PHI:{name:"Philadelphia Eagles",logo:"phi"},
+  PIT:{name:"Pittsburgh Steelers",logo:"pit"},SEA:{name:"Seattle Seahawks",logo:"sea"},
+  SF: {name:"San Francisco 49ers",logo:"sf"},TB: {name:"Tampa Bay Buccaneers",logo:"tb"},
+  TEN:{name:"Tennessee Titans",logo:"ten"},  WAS:{name:"Washington Commanders",logo:"wsh"},
+};
+function teamName(abbr) { return (TEAM_INFO[abbr] && TEAM_INFO[abbr].name) || abbr; }
+function teamLogo(abbr) {
+  const slug = (TEAM_INFO[abbr] && TEAM_INFO[abbr].logo) || (abbr || '').toLowerCase();
+  return `https://a.espncdn.com/i/teamlogos/nfl/500/${slug}.png`;
+}
+
 let DATA = { elo: [], thisWeek: [], teamStats: [], gameLog: [], injuries: [] };
 let currentTab = 'week';
 
@@ -618,20 +672,42 @@ function renderWeek() {
         </div>
         <div class="matchup">
           <div class="team-row ${!homeFavored ? 'pick' : ''}">
-            <div><span class="team-tag">AWAY</span><span class="team-name">${escapeHtml(g['Away'])}</span></div>
+            <div class="team-info">
+              <img class="team-logo" src="${teamLogo(g['Away'])}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+              <div class="team-text">
+                <span class="team-tag">AWAY</span>
+                <span class="team-name">${escapeHtml(teamName(g['Away']))}</span>
+              </div>
+            </div>
             <span class="team-win-pct">${awayPct}%</span>
           </div>
           <div class="yard-line"><span class="spread-chip">${escapeHtml(spreadText)}</span></div>
           <div class="team-row ${homeFavored ? 'pick' : ''}">
-            <div><span class="team-tag">HOME</span><span class="team-name">${escapeHtml(g['Home'])}</span></div>
+            <div class="team-info">
+              <img class="team-logo" src="${teamLogo(g['Home'])}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+              <div class="team-text">
+                <span class="team-tag">HOME</span>
+                <span class="team-name">${escapeHtml(teamName(g['Home']))}</span>
+              </div>
+            </div>
             <span class="team-win-pct">${homePct}%</span>
           </div>
         </div>
         <div class="stat-strip">
           <div class="stat-cell">
+            <div class="stat-label">${escapeHtml(g['Away'])} Total</div>
+            <div class="stat-value">${escapeHtml(g['Away Team Total'] || '—')}</div>
+          </div>
+          <div class="stat-cell">
             <div class="stat-label">O/U</div>
             <div class="stat-value">${escapeHtml(g['O/U Total'] || '—')}</div>
           </div>
+          <div class="stat-cell">
+            <div class="stat-label">${escapeHtml(g['Home'])} Total</div>
+            <div class="stat-value">${escapeHtml(g['Home Team Total'] || '—')}</div>
+          </div>
+        </div>
+        <div class="stat-strip">
           <div class="stat-cell">
             <div class="stat-label">1H Spread</div>
             <div class="stat-value">${escapeHtml(g['1H Spread (Home)'] || '—')}</div>
@@ -760,7 +836,7 @@ function openGameModal(idx) {
 
     <div class="modal-cols">
       <div class="modal-team-block">
-        <div class="tname">${escapeHtml(g['Away'])} <span style="color:var(--yard-gray);font-size:11px;">AWAY</span></div>
+        <div class="tname"><img src="${teamLogo(g['Away'])}" alt="" onerror="this.style.display='none'">${escapeHtml(teamName(g['Away']))} <span style="color:var(--yard-gray);font-size:11px;">AWAY</span></div>
         <div class="modal-row"><span class="k">Starting QB</span><span class="v">${escapeHtml(g['Away Starting QB'] || 'TBD')}</span></div>
         <div class="modal-row"><span class="k">Record</span><span class="v">${escapeHtml(awayStats['W'] || '—')}-${escapeHtml(awayStats['L'] || '—')}${awayStats['T'] && awayStats['T'] !== '0' ? '-' + escapeHtml(awayStats['T']) : ''}</span></div>
         <div class="modal-row"><span class="k">PF/G</span><span class="v">${escapeHtml(awayStats['PF/G'] || '—')}</span></div>
@@ -768,7 +844,7 @@ function openGameModal(idx) {
         <div class="modal-row"><span class="k">Elo</span><span class="v">${escapeHtml(g['Away Elo'] || '—')}</span></div>
       </div>
       <div class="modal-team-block">
-        <div class="tname">${escapeHtml(g['Home'])} <span style="color:var(--yard-gray);font-size:11px;">HOME</span></div>
+        <div class="tname"><img src="${teamLogo(g['Home'])}" alt="" onerror="this.style.display='none'">${escapeHtml(teamName(g['Home']))} <span style="color:var(--yard-gray);font-size:11px;">HOME</span></div>
         <div class="modal-row"><span class="k">Starting QB</span><span class="v">${escapeHtml(g['Home Starting QB'] || 'TBD')}</span></div>
         <div class="modal-row"><span class="k">Record</span><span class="v">${escapeHtml(homeStats['W'] || '—')}-${escapeHtml(homeStats['L'] || '—')}${homeStats['T'] && homeStats['T'] !== '0' ? '-' + escapeHtml(homeStats['T']) : ''}</span></div>
         <div class="modal-row"><span class="k">PF/G</span><span class="v">${escapeHtml(homeStats['PF/G'] || '—')}</span></div>
