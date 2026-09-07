@@ -637,6 +637,7 @@ const GIDS = {
   gameLog:    1582067386,
   injuries:   1383662734,
   fullSchedule: 968251506,
+  headToHead: 1327803425,
 };
 
 /* ============================================================
@@ -669,7 +670,7 @@ function teamLogo(abbr) {
   return `https://a.espncdn.com/i/teamlogos/nfl/500/${slug}.png`;
 }
 
-let DATA = { elo: [], thisWeek: [], teamStats: [], gameLog: [], injuries: [], fullSchedule: [] };
+let DATA = { elo: [], thisWeek: [], teamStats: [], gameLog: [], injuries: [], fullSchedule: [], headToHead: [] };
 let currentTab = 'week';
 
 /* ============================================================
@@ -745,6 +746,16 @@ async function loadAll() {
       } catch (scheduleErr) {
         console.error('Full schedule fetch failed (non-fatal):', scheduleErr);
         DATA.fullSchedule = [];
+      }
+    }
+
+    if (GIDS.headToHead) {
+      try {
+        const headToHead = await fetchCSV(GIDS.headToHead);
+        DATA.headToHead = rowsToObjects(headToHead);
+      } catch (h2hErr) {
+        console.error('Head to Head fetch failed (non-fatal):', h2hErr);
+        DATA.headToHead = [];
       }
     }
 
@@ -1151,10 +1162,10 @@ function openGameModal(idx) {
   const awayInjuries = DATA.injuries.filter(inj => inj['Team'] === g['Away']);
   const homeInjuries = DATA.injuries.filter(inj => inj['Team'] === g['Home']);
 
-  const awayH2H = DATA.gameLog.filter(row =>
-    (row['Away'] === g['Away'] && row['Home'] === g['Home']) ||
-    (row['Away'] === g['Home'] && row['Home'] === g['Away'])
-  ).slice(-3);
+  const h2hHistory = DATA.headToHead.filter(row =>
+    (row['TeamA'] === g['Away'] && row['TeamB'] === g['Home']) ||
+    (row['TeamA'] === g['Home'] && row['TeamB'] === g['Away'])
+  ).sort((a,b) => new Date(b['Date']) - new Date(a['Date'])).slice(0, 5);
 
   const body = document.getElementById('modal-body');
   body.innerHTML = `
@@ -1193,7 +1204,7 @@ function openGameModal(idx) {
 
     <div class="modal-section">
       <h4>Head-to-Head (Recent)</h4>
-      ${renderH2H(awayH2H)}
+      ${renderH2H(h2hHistory)}
     </div>
   `;
 
@@ -1222,11 +1233,11 @@ function renderInjuryList(awayInj, homeInj, g) {
 }
 
 function renderH2H(rows) {
-  if (!rows.length) return `<div class="injury-line" style="color:var(--yard-gray)">No recent meetings on record.</div>`;
+  if (!rows.length) return `<div class="injury-line" style="color:var(--yard-gray)">No meetings found in the last 3 seasons.</div>`;
   return rows.map(r => `
     <div class="injury-line">
-      <strong>${escapeHtml(r['Away'])} ${escapeHtml(r['Away Score'])} — ${escapeHtml(r['Home Score'])} ${escapeHtml(r['Home'])}</strong>
-      <span style="color:var(--yard-gray)"> · ${escapeHtml(formatDate(r['Date']))}</span>
+      <strong>${escapeHtml(r['Away'])} @ ${escapeHtml(r['Home'])}</strong> — ${escapeHtml(r['Result'])}
+      <span style="color:var(--yard-gray)"> · ${escapeHtml(r['Season'])} season, ${escapeHtml(formatDate(r['Date']))}</span>
     </div>
   `).join('');
 }
