@@ -938,6 +938,16 @@ function formatDate(raw) {
   return `${datePart} · ${timePart}`;
 }
 
+// For historical/past-game dates (e.g. Head-to-Head), where there's
+// genuinely no time-of-day to show and "Time TBD" would be misleading —
+// these games already happened, they're just stored as date-only.
+function formatDateOnly(raw) {
+  if (!raw) return 'TBD';
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 /* ============================================================
    ELO STANDINGS TABLE
    ============================================================ */
@@ -1237,7 +1247,7 @@ function renderH2H(rows) {
   return rows.map(r => `
     <div class="injury-line">
       <strong>${escapeHtml(r['Away'])} @ ${escapeHtml(r['Home'])}</strong> — ${escapeHtml(r['Result'])}
-      <span style="color:var(--yard-gray)"> · ${escapeHtml(r['Season'])} season, ${escapeHtml(formatDate(r['Date']))}</span>
+      <span style="color:var(--yard-gray)"> · ${escapeHtml(r['Season'])} season, ${escapeHtml(formatDateOnly(r['Date']))}</span>
     </div>
   `).join('');
 }
