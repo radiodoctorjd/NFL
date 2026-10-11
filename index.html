@@ -337,6 +337,16 @@
     color: var(--endzone);
     font-weight: 700;
   }
+  .footer-flags { display: flex; align-items: center; gap: 10px; }
+  .changed-flag { color: var(--gold); font-weight: 700; }
+  .locked-flag { color: var(--chalk-dim); }
+  .modal-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--chalk-dim);
+    margin: -12px 0 18px;
+    line-height: 1.6;
+  }
 
   /* ── STANDINGS TABLE ────────────────────────────────── */
   .schedule-controls {
@@ -678,7 +688,7 @@ let currentTab = 'week';
    ============================================================ */
 async function fetchCSV(gid) {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
-  const resp = await fetch(url);
+  const resp = await fetch(url, { cache: 'no-store' });
   if (!resp.ok) throw new Error(`Failed to fetch GID ${gid}: ${resp.status}`);
   return parseCSV(await resp.text());
 }
@@ -717,9 +727,25 @@ function rowsToObjects(rows) {
 /* ============================================================
    LOAD ALL DATA
    ============================================================ */
-async function loadAll() {
+// The Sheet re-runs the model on a timer (every 15-30 min on game days), so the
+// page re-checks it every 5 minutes while visible. Background checks keep the
+// current view on screen and only re-render when the data actually changed.
+const AUTO_REFRESH_MS = 5 * 60 * 1000;
+let lastLoadAt = 0;
+let lastDataSig = '';
+let loadInFlight = false;
+// Each game's prediction as first seen on this page, so cards can flag games
+// whose line moved (e.g. after a late injury) while the page was open.
+const BASELINE = {};
+
+function gameKey(g) { return `${g['Away']}@${g['Home']}`; }
+
+async function loadAll(opts) {
+  const background = !!(opts && opts.background);
+  if (loadInFlight) return;
+  loadInFlight = true;
   const pill = document.getElementById('updated-pill');
-  pill.textContent = 'Refreshing…';
+  if (!background) pill.textContent = 'Refreshing…';
   try {
     const [elo, thisWeek, teamStats, gameLog, injuries] = await Promise.all([
       fetchCSV(GIDS.elo),
@@ -759,16 +785,77 @@ async function loadAll() {
       }
     }
 
-    const now = new Date();
-    pill.textContent = 'Updated ' + now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    render();
+    DATA.thisWeek.forEach(g => { if (!BASELINE[gameKey(g)]) BASELINE[gameKey(g)] = g; });
+    lastLoadAt = Date.now();
+    updatePill();
+
+    const sig = JSON.stringify(DATA);
+    if (!background || sig !== lastDataSig) render();
+    lastDataSig = sig;
   } catch (err) {
+    console.error(err);
+    if (background && lastDataSig) {
+      // Keep showing the last good data; just note the failed check.
+      pill.textContent = 'Couldn\'t refresh — tap to retry';
+      return;
+    }
     pill.textContent = 'Refresh failed — tap to retry';
     document.getElementById('main').innerHTML =
       `<div class="state-msg">Couldn't load live data.<br><strong>${escapeHtml(err.message)}</strong><br>Tap the pill above to try again.</div>`;
-    console.error(err);
+  } finally {
+    loadInFlight = false;
   }
 }
+
+// Pill shows when the MODEL last ran (newest "Prediction Updated" stamp in
+// This Week), not just when this browser fetched the Sheet.
+function updatePill() {
+  const pill = document.getElementById('updated-pill');
+  const checked = formatClock(new Date(lastLoadAt));
+  const stamps = DATA.thisWeek.map(g => new Date(g['Prediction Updated'] || '').getTime()).filter(t => !isNaN(t));
+  if (stamps.length) {
+    pill.textContent = 'Model run ' + formatClock(new Date(Math.max(...stamps)));
+    pill.title = `Checked the Sheet at ${checked}. Re-checks every 5 minutes. Tap to check now.`;
+  } else {
+    pill.textContent = 'Updated ' + checked;
+    pill.title = 'Tap to check the Sheet now.';
+  }
+}
+
+// "3:42 PM" for today, "Sat 10:51 PM" for any other day.
+function formatClock(d) {
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  if (d.toDateString() === new Date().toDateString()) return time;
+  return d.toLocaleDateString('en-US', { weekday: 'short' }) + ' ' + time;
+}
+
+function isKickedOff(g) {
+  const k = new Date(g['Kickoff'] || g['Game Date']);
+  return !isNaN(k.getTime()) && k.getTime() <= Date.now();
+}
+
+// What moved since this page first loaded the game, e.g. ["spread was GB -1", "total was 46.5"].
+function changesSinceOpen(g) {
+  const base = BASELINE[gameKey(g)];
+  if (!base || base === g) return [];
+  const out = [];
+  if (base['Spread (Home)'] !== g['Spread (Home)']) out.push(`spread was ${spreadLabel(base, 'Spread (Home)')}`);
+  if (base['O/U Total'] !== g['O/U Total']) out.push(`total was ${stripSign(base['O/U Total'])}`);
+  if (base['Home Win%'] !== g['Home Win%']) out.push(`${g['Home']} win% was ${parsePercent(base['Home Win%'])}%`);
+  if (base['Away Starting QB'] !== g['Away Starting QB']) out.push(`${g['Away']} QB was ${base['Away Starting QB'] || 'TBD'}`);
+  if (base['Home Starting QB'] !== g['Home Starting QB']) out.push(`${g['Home']} QB was ${base['Home Starting QB'] || 'TBD'}`);
+  return out;
+}
+
+function spreadLabel(g, col) {
+  const s = parseFloat(g[col] || 0);
+  return s === 0 ? 'PICK' : (s > 0 ? `${g['Home']} -${s}` : `${g['Away']} -${Math.abs(s)}`);
+}
+
+setInterval(() => { if (!document.hidden) loadAll({ background: true }); }, AUTO_REFRESH_MS);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && Date.now() - lastLoadAt > AUTO_REFRESH_MS) loadAll({ background: true });
+});
 
 /* ============================================================
    RENDER ROUTER
@@ -808,13 +895,10 @@ function renderWeek() {
     const awayPct = parsePercent(g['Away Win%']);
     const homePct = parsePercent(g['Home Win%']);
     const homeFavored = homePct >= awayPct;
-    const spread = parseFloat(g['Spread (Home)'] || 0);
-    const spreadText = spread === 0 ? 'PICK' :
-      (spread > 0 ? `${g['Home']} -${spread}` : `${g['Away']} -${Math.abs(spread)}`);
-
-    const spread1H = parseFloat(g['1H Spread (Home)'] || 0);
-    const spread1HText = spread1H === 0 ? 'PICK' :
-      (spread1H > 0 ? `${g['Home']} -${spread1H}` : `${g['Away']} -${Math.abs(spread1H)}`);
+    const spreadText = spreadLabel(g, 'Spread (Home)');
+    const spread1HText = spreadLabel(g, '1H Spread (Home)');
+    const changes = changesSinceOpen(g);
+    const locked = isKickedOff(g);
 
     const conf = (g['Confidence'] || '').toLowerCase();
     const confClass = conf.includes('strong') ? 'strong' : conf.includes('moderate') ? 'moderate' : 'tossup';
@@ -888,7 +972,11 @@ function renderWeek() {
         </div>
         <div class="card-footer">
           <span class="weather-chip">${weatherIcon(g['Weather'])} ${escapeHtml(g['Weather'] || 'TBD')}${g['Temp (F)'] ? ' · ' + escapeHtml(g['Temp (F)']) + '°F' : ''}</span>
-          ${hasInjury ? '<span class="injury-flag">⚑ Injury notes</span>' : ''}
+          <span class="footer-flags">
+            ${changes.length ? `<span class="changed-flag" title="${escapeHtml('Changed since you opened this page: ' + changes.join(', '))}">↻ Updated</span>` : ''}
+            ${locked ? '<span class="locked-flag" title="Prediction frozen at kickoff">🔒 Locked</span>' : ''}
+            ${hasInjury ? '<span class="injury-flag">⚑ Injury notes</span>' : ''}
+          </span>
         </div>
       </div>
     `;
@@ -1181,6 +1269,7 @@ function openGameModal(idx) {
   body.innerHTML = `
     <div class="modal-header">${escapeHtml(g['Away'])} @ ${escapeHtml(g['Home'])}</div>
     <div class="modal-sub">Week ${escapeHtml(g['Week'])} · ${escapeHtml(formatDate(g['Kickoff'] || g['Game Date']))}</div>
+    ${predictionStatusLine(g)}
 
     <div class="modal-cols">
       <div class="modal-team-block">
@@ -1219,6 +1308,19 @@ function openGameModal(idx) {
   `;
 
   document.getElementById('overlay').classList.add('open');
+}
+
+function predictionStatusLine(g) {
+  const stamp = new Date(g['Prediction Updated'] || '');
+  const parts = [];
+  if (!isNaN(stamp.getTime())) {
+    parts.push((isKickedOff(g) ? '🔒 Locked at kickoff · prediction from ' : 'Prediction as of ') + formatClock(stamp));
+  } else if (isKickedOff(g)) {
+    parts.push('🔒 Locked at kickoff');
+  }
+  const changes = changesSinceOpen(g);
+  if (changes.length) parts.push('↻ Changed since you opened this page: ' + changes.join(', '));
+  return parts.length ? `<div class="modal-status">${parts.map(escapeHtml).join('<br>')}</div>` : '';
 }
 
 // Statuses that represent an actual current injury concern. ESPN's feed also
